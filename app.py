@@ -20,9 +20,12 @@ app = Flask(__name__,
 
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
-SUPABASE_URL  = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_KEY  = os.environ.get("SUPABASE_SERVICE_KEY", "")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+def _clean(v):
+    return v.lstrip("﻿​").strip()
+
+SUPABASE_URL   = _clean(os.environ.get("SUPABASE_URL", "")).rstrip("/")
+SUPABASE_KEY   = _clean(os.environ.get("SUPABASE_SERVICE_KEY", ""))
+ADMIN_PASSWORD = _clean(os.environ.get("ADMIN_PASSWORD", "admin123"))
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 
