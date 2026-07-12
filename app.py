@@ -126,18 +126,6 @@ def upload_image(file):
     return storage_upload("images", filename, data, file.content_type or "image/jpeg")
 
 
-# ── diagnostic ───────────────────────────────────────────────────────────────
-
-@app.route("/ping")
-def ping():
-    import traceback
-    try:
-        rows = db_select("articles", {"published": "eq.true"}, order="created_at.desc")
-        return {"ok": True, "count": len(rows), "url": SUPABASE_URL[:30]}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "trace": traceback.format_exc()}, 500
-
-
 # ── public routes ─────────────────────────────────────────────────────────────
 
 @app.route("/")
