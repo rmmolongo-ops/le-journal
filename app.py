@@ -1,7 +1,6 @@
 import os
 import uuid
 import re
-from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
@@ -10,7 +9,6 @@ from dotenv import load_dotenv
 from flask import (Flask, abort, flash, redirect, render_template, request,
                    session, url_for)
 from supabase import create_client
-from werkzeug.utils import secure_filename
 
 load_dotenv()
 
@@ -20,14 +18,21 @@ app = Flask(__name__,
             template_folder=str(BASE_DIR / "templates"),
             static_folder=str(BASE_DIR / "static"))
 
-app.secret_key = os.environ["FLASK_SECRET_KEY"]
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
-ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
-sb = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Lazy Supabase client — évite les erreurs à l'import si les vars sont absentes
+_sb = None
+
+def get_sb():
+    global _sb
+    if _sb is None:
+        _sb = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return _sb
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -61,10 +66,10 @@ def require_admin(f):
 
 
 def upload_image(file):
-    """Upload image to Supabase Storage and return public URL."""
     ext = file.filename.rsplit(".", 1)[1].lower()
     filename = f"{uuid.uuid4().hex}.{ext}"
     data = file.read()
+    sb = get_sb()
     sb.storage.from_("images").upload(
         path=filename,
         file=data,
@@ -77,6 +82,7 @@ def upload_image(file):
 
 @app.route("/")
 def index():
+    sb = get_sb()
     res = sb.table("articles").select("*").eq("published", True)\
             .order("created_at", desc=True).execute()
     articles = [render_article(a) for a in (res.data or [])]
@@ -87,6 +93,7 @@ def index():
 
 @app.route("/article/<slug>")
 def article(slug):
+    sb = get_sb()
     res = sb.table("articles").select("*").eq("slug", slug).execute()
     if not res.data:
         abort(404)
@@ -98,6 +105,7 @@ def article(slug):
 
 @app.route("/categorie/<category>")
 def category(category):
+    sb = get_sb()
     res = sb.table("articles").select("*").eq("published", True)\
             .ilike("category", category).order("created_at", desc=True).execute()
     articles = [render_article(a) for a in (res.data or [])]
@@ -125,6 +133,7 @@ def admin_logout():
 @app.route("/admin")
 @require_admin
 def admin_dashboard():
+    sb = get_sb()
     res = sb.table("articles").select("id,slug,title,author,category,published,created_at")\
             .order("created_at", desc=True).execute()
     articles = res.data or []
@@ -144,6 +153,7 @@ def admin_new():
 def admin_edit(slug):
     if request.method == "POST":
         return _save_article_form(slug)
+    sb = get_sb()
     res = sb.table("articles").select("*").eq("slug", slug).execute()
     if not res.data:
         abort(404)
@@ -153,7 +163,7 @@ def admin_edit(slug):
 @app.route("/admin/delete/<slug>", methods=["POST"])
 @require_admin
 def admin_delete(slug):
-    sb.table("articles").delete().eq("slug", slug).execute()
+    get_sb().table("articles").delete().eq("slug", slug).execute()
     flash("Article supprimé.", "success")
     return redirect(url_for("admin_dashboard"))
 
@@ -161,6 +171,7 @@ def admin_delete(slug):
 @app.route("/admin/toggle/<slug>", methods=["POST"])
 @require_admin
 def admin_toggle(slug):
+    sb = get_sb()
     res = sb.table("articles").select("published").eq("slug", slug).execute()
     if not res.data:
         abort(404)
@@ -171,32 +182,28 @@ def admin_toggle(slug):
 
 
 def _save_article_form(existing_slug):
-    title   = request.form.get("title", "").strip()
-    content = request.form.get("content", "").strip()
-    category= request.form.get("category", "").strip()
-    author  = request.form.get("author", "").strip()
+    title     = request.form.get("title", "").strip()
+    content   = request.form.get("content", "").strip()
+    category  = request.form.get("category", "").strip()
+    author    = request.form.get("author", "").strip()
     published = "published" in request.form
 
     if not title:
         flash("Le titre est obligatoire.", "error")
         return redirect(request.url)
 
-    # Image upload → Supabase Storage
     thumbnail_url = request.form.get("existing_thumbnail", "")
     file = request.files.get("thumbnail")
     if file and file.filename and allowed_file(file.filename):
         thumbnail_url = upload_image(file)
 
     slug = existing_slug or slugify(title)
+    sb = get_sb()
 
     payload = {
-        "slug": slug,
-        "title": title,
-        "content": content,
-        "author": author,
-        "category": category,
-        "thumbnail_url": thumbnail_url,
-        "published": published,
+        "slug": slug, "title": title, "content": content,
+        "author": author, "category": category,
+        "thumbnail_url": thumbnail_url, "published": published,
     }
 
     if existing_slug:
