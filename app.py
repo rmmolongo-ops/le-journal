@@ -4,11 +4,11 @@ import re
 from functools import wraps
 from pathlib import Path
 
+import httpx
 import markdown
 from dotenv import load_dotenv
 from flask import (Flask, abort, flash, redirect, render_template, request,
                    session, url_for)
-from supabase import create_client
 
 load_dotenv()
 
@@ -20,22 +20,73 @@ app = Flask(__name__,
 
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+SUPABASE_URL  = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_KEY  = os.environ.get("SUPABASE_SERVICE_KEY", "")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
-# Lazy Supabase client — évite les erreurs à l'import si les vars sont absentes
-_sb = None
 
-def get_sb():
-    global _sb
-    if _sb is None:
-        _sb = create_client(SUPABASE_URL, SUPABASE_KEY)
-    return _sb
+# ── Supabase REST helpers ──────────────────────────────────────────────────────
+
+def _headers():
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+def _rest(path):
+    return f"{SUPABASE_URL}/rest/v1/{path}"
+
+def _storage(path):
+    return f"{SUPABASE_URL}/storage/v1/{path}"
 
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+def db_select(table, filters=None, columns="*", order=None):
+    params = {"select": columns}
+    if filters:
+        params.update(filters)
+    if order:
+        params["order"] = order
+    r = httpx.get(_rest(table), headers=_headers(), params=params, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+
+def db_insert(table, data):
+    r = httpx.post(_rest(table), headers=_headers(), json=data, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+
+def db_update(table, data, filters):
+    params = {}
+    params.update(filters)
+    r = httpx.patch(_rest(table), headers={**_headers(), "Prefer": "return=representation"},
+                    json=data, params=params, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+
+def db_delete(table, filters):
+    r = httpx.delete(_rest(table), headers=_headers(), params=filters, timeout=10)
+    r.raise_for_status()
+
+
+def storage_upload(bucket, filename, data, content_type):
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": content_type,
+    }
+    r = httpx.post(_storage(f"object/{bucket}/{filename}"),
+                   headers=headers, content=data, timeout=30)
+    r.raise_for_status()
+    return f"{SUPABASE_URL}/storage/v1/object/public/{bucket}/{filename}"
+
+
+# ── app helpers ───────────────────────────────────────────────────────────────
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -69,35 +120,26 @@ def upload_image(file):
     ext = file.filename.rsplit(".", 1)[1].lower()
     filename = f"{uuid.uuid4().hex}.{ext}"
     data = file.read()
-    sb = get_sb()
-    sb.storage.from_("images").upload(
-        path=filename,
-        file=data,
-        file_options={"content-type": file.content_type or "image/jpeg"}
-    )
-    return sb.storage.from_("images").get_public_url(filename)
+    return storage_upload("images", filename, data, file.content_type or "image/jpeg")
 
 
 # ── public routes ─────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
-    sb = get_sb()
-    res = sb.table("articles").select("*").eq("published", True)\
-            .order("created_at", desc=True).execute()
-    articles = [render_article(a) for a in (res.data or [])]
-    featured = articles[0] if articles else None
-    rest = articles[1:]
-    return render_template("index.html", featured=featured, articles=rest)
+    rows = db_select("articles", {"published": "eq.true"}, order="created_at.desc")
+    articles = [render_article(a) for a in rows]
+    return render_template("index.html",
+                           featured=articles[0] if articles else None,
+                           articles=articles[1:])
 
 
 @app.route("/article/<slug>")
 def article(slug):
-    sb = get_sb()
-    res = sb.table("articles").select("*").eq("slug", slug).execute()
-    if not res.data:
+    rows = db_select("articles", {"slug": f"eq.{slug}"})
+    if not rows:
         abort(404)
-    post = render_article(res.data[0])
+    post = render_article(rows[0])
     if not post.get("published") and not session.get("admin"):
         abort(404)
     return render_template("article.html", post=post)
@@ -105,10 +147,10 @@ def article(slug):
 
 @app.route("/categorie/<category>")
 def category(category):
-    sb = get_sb()
-    res = sb.table("articles").select("*").eq("published", True)\
-            .ilike("category", category).order("created_at", desc=True).execute()
-    articles = [render_article(a) for a in (res.data or [])]
+    rows = db_select("articles",
+                     {"published": "eq.true", "category": f"ilike.{category}"},
+                     order="created_at.desc")
+    articles = [render_article(a) for a in rows]
     return render_template("category.html", articles=articles, category=category)
 
 
@@ -133,11 +175,9 @@ def admin_logout():
 @app.route("/admin")
 @require_admin
 def admin_dashboard():
-    sb = get_sb()
-    res = sb.table("articles").select("id,slug,title,author,category,published,created_at")\
-            .order("created_at", desc=True).execute()
-    articles = res.data or []
-    return render_template("admin/dashboard.html", articles=articles)
+    rows = db_select("articles", columns="id,slug,title,author,category,published,created_at",
+                     order="created_at.desc")
+    return render_template("admin/dashboard.html", articles=rows)
 
 
 @app.route("/admin/new", methods=["GET", "POST"])
@@ -153,17 +193,16 @@ def admin_new():
 def admin_edit(slug):
     if request.method == "POST":
         return _save_article_form(slug)
-    sb = get_sb()
-    res = sb.table("articles").select("*").eq("slug", slug).execute()
-    if not res.data:
+    rows = db_select("articles", {"slug": f"eq.{slug}"})
+    if not rows:
         abort(404)
-    return render_template("admin/editor.html", post=res.data[0], slug=slug)
+    return render_template("admin/editor.html", post=rows[0], slug=slug)
 
 
 @app.route("/admin/delete/<slug>", methods=["POST"])
 @require_admin
 def admin_delete(slug):
-    get_sb().table("articles").delete().eq("slug", slug).execute()
+    db_delete("articles", {"slug": f"eq.{slug}"})
     flash("Article supprimé.", "success")
     return redirect(url_for("admin_dashboard"))
 
@@ -171,12 +210,11 @@ def admin_delete(slug):
 @app.route("/admin/toggle/<slug>", methods=["POST"])
 @require_admin
 def admin_toggle(slug):
-    sb = get_sb()
-    res = sb.table("articles").select("published").eq("slug", slug).execute()
-    if not res.data:
+    rows = db_select("articles", {"slug": f"eq.{slug}"}, columns="published")
+    if not rows:
         abort(404)
-    new_status = not res.data[0]["published"]
-    sb.table("articles").update({"published": new_status}).eq("slug", slug).execute()
+    new_status = not rows[0]["published"]
+    db_update("articles", {"published": new_status}, {"slug": f"eq.{slug}"})
     flash(f"Article {'publié' if new_status else 'dépublié'}.", "success")
     return redirect(url_for("admin_dashboard"))
 
@@ -198,8 +236,6 @@ def _save_article_form(existing_slug):
         thumbnail_url = upload_image(file)
 
     slug = existing_slug or slugify(title)
-    sb = get_sb()
-
     payload = {
         "slug": slug, "title": title, "content": content,
         "author": author, "category": category,
@@ -207,9 +243,9 @@ def _save_article_form(existing_slug):
     }
 
     if existing_slug:
-        sb.table("articles").update(payload).eq("slug", slug).execute()
+        db_update("articles", payload, {"slug": f"eq.{slug}"})
     else:
-        sb.table("articles").insert(payload).execute()
+        db_insert("articles", payload)
 
     flash("Article sauvegardé.", "success")
     return redirect(url_for("admin_dashboard"))
