@@ -23,6 +23,7 @@
     </div>
 
     {% if articles %}
+    <div class="table-scroll">
     <table class="admin-table">
       <thead>
         <tr>
@@ -70,6 +71,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% else %}
     <div class="empty-state">
