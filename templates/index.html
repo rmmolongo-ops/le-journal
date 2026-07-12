@@ -41,8 +41,8 @@
   <!-- Article à la une -->
   <a href="{{ url_for('article', slug=featured['slug']) }}">
     <div class="hero">
-      {% if featured.get('thumbnail') %}
-        <img class="hero__img" src="{{ url_for('static', filename=featured['thumbnail']) }}" alt="{{ featured['title'] }}">
+      {% if featured.get('thumbnail_url') %}
+        <img class="hero__img" src="{{ featured['thumbnail_url'] }}" alt="{{ featured['title'] }}">
       {% else %}
         <div class="hero__no-img"></div>
       {% endif %}
