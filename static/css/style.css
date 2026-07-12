@@ -708,8 +708,16 @@ textarea.form-control {
 
 /* ── Responsive ────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .admin-layout { grid-template-columns: 1fr; }
-  .admin-sidebar { display: none; }
   .form-row { grid-template-columns: 1fr; }
   .navbar__links { display: none; }
+}
+
+@media (max-width: 900px) {
+  .admin-layout { grid-template-columns: 200px 1fr; }
+}
+
+@media (max-width: 640px) {
+  .admin-layout { grid-template-columns: 1fr; }
+  .admin-sidebar { display: none; }
+  .admin-main { padding: 1.25rem; }
 }
