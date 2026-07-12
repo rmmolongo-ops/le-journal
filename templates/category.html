@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ category | capitalize }} — Le Journal{% endblock %}
+
+{% block body %}
+<nav class="navbar">
+  <a href="{{ url_for('index') }}" class="navbar__logo">⚡ Le Journal</a>
+  <ul class="navbar__links">
+    <li><a href="{{ url_for('category', category='actu') }}">Actu</a></li>
+    <li><a href="{{ url_for('category', category='culture') }}">Culture</a></li>
+    <li><a href="{{ url_for('category', category='sport') }}">Sport</a></li>
+    <li><a href="{{ url_for('category', category='sciences') }}">Sciences</a></li>
+    <li><a href="{{ url_for('category', category='tech') }}">Tech</a></li>
+  </ul>
+  <a href="{{ url_for('index') }}" class="btn btn-ghost btn-sm">← Accueil</a>
+</nav>
+
+<div class="container">
+  <div class="section-header" style="margin-top:2rem">
+    <h2>{{ category | capitalize }}</h2>
+    <div class="section-header__line"></div>
+  </div>
+
+  {% if articles %}
+  <div class="grid">
+    {% for post in articles %}
+    <a href="{{ url_for('article', slug=post['slug']) }}">
+      <div class="card">
+        {% if post.get('thumbnail_url') %}
+          <img class="card__thumb" src="{{ post['thumbnail_url'] }}" alt="{{ post['title'] }}">
+        {% else %}
+          <div class="card__thumb-placeholder">📰</div>
+        {% endif %}
+        <div class="card__body">
+          <div class="card__category">{{ post.get('category','') }}</div>
+          <h3 class="card__title">{{ post['title'] }}</h3>
+          <p class="card__excerpt">{{ post['excerpt'] }}</p>
+          <div class="card__footer">
+            <span>{{ post.get('date','') }}</span>
+            <span class="card__read-more">Lire →</span>
+          </div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state__icon">🔍</div>
+    <h3>Aucun article dans cette catégorie</h3>
+    <p>Revenez bientôt, de nouveaux articles arrivent !</p>
+  </div>
+  {% endif %}
+</div>
+
+<footer>
+  <p>© 2024 Le Journal</p>
+</footer>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Connexion Admin{% endblock %}
+
+{% block body %}
+<div class="login-page">
+  <div class="login-card">
+    <h1>⚡ Le Journal</h1>
+    <p>Espace administration — journalistes uniquement</p>
+
+    <form method="POST" style="text-align:left">
+      <div class="form-group">
+        <label for="password">Mot de passe</label>
+        <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" autofocus required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.5rem">
+        Se connecter
+      </button>
+    </form>
+
+    <a href="{{ url_for('index') }}" class="btn btn-ghost btn-sm" style="margin-top:1rem;width:100%;justify-content:center">
+      ← Retour au site
+    </a>
+  </div>
+</div>
+{% endblock %}

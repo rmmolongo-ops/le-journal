@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if slug else 'Nouvel article' }} — Admin{% endblock %}
+
+{% block body %}
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar__logo">⚡ Le Journal</div>
+    <nav class="admin-nav">
+      <a href="{{ url_for('admin_dashboard') }}">📋 Articles</a>
+      <a href="{{ url_for('admin_new') }}" class="{{ 'active' if not slug else '' }}">✏️ Nouvel article</a>
+      <a href="{{ url_for('index') }}" target="_blank">🌐 Voir le site</a>
+      <a href="{{ url_for('admin_logout') }}" style="margin-top:auto;color:#ef4444">🚪 Déconnexion</a>
+    </nav>
+  </aside>
+
+  <!-- Editor -->
+  <main class="admin-main">
+    <div class="admin-header">
+      <h1>{{ '✏️ Modifier l\'article' if slug else '✏️ Nouvel article' }}</h1>
+      <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Retour</a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="existing_thumbnail" value="{{ post.get('thumbnail_url','') if post else '' }}">
+
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label for="title">Titre *</label>
+          <input type="text" id="title" name="title" class="form-control"
+                 placeholder="Un titre accrocheur…"
+                 value="{{ post['title'] if post else '' }}" required>
+        </div>
+
+        <div class="form-group">
+          <label for="author">Auteur</label>
+          <input type="text" id="author" name="author" class="form-control"
+                 placeholder="Prénom Nom"
+                 value="{{ post.get('author','') if post else '' }}">
+        </div>
+
+        <div class="form-group">
+          <label for="category">Catégorie</label>
+          <select id="category" name="category" class="form-control">
+            <option value="">— Choisir —</option>
+            {% for cat in ['actu','culture','sport','sciences','tech'] %}
+              <option value="{{ cat }}" {{ 'selected' if post and post.get('category','').lower()==cat else '' }}>
+                {{ cat | capitalize }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="thumbnail">Image d'illustration</label>
+        <input type="file" id="thumbnail" name="thumbnail" class="form-control"
+               accept="image/*" onchange="previewImage(this)">
+        {% if post and post.get('thumbnail') %}
+          <img id="thumb-preview" class="thumb-preview"
+               src="{{ url_for('static', filename=post['thumbnail']) }}" alt="Aperçu">
+        {% else %}
+          <img id="thumb-preview" class="thumb-preview" style="display:none" alt="Aperçu">
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="content">Contenu (Markdown)</label>
+        <textarea id="content" name="content" class="form-control"
+                  placeholder="Rédigez votre article en Markdown…&#10;&#10;## Titre de section&#10;&#10;Du texte avec **gras**, *italique*, [lien](url)…&#10;&#10;> Une citation marquante">{{ post.content if post else '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-check">
+          <input type="checkbox" name="published" {{ 'checked' if post and post.get('published') else '' }}>
+          Publier immédiatement (visible sur le site)
+        </label>
+      </div>
+
+      <div style="display:flex;gap:1rem;margin-top:1.5rem">
+        <button type="submit" class="btn btn-primary">
+          💾 {{ 'Sauvegarder les modifications' if slug else 'Créer l\'article' }}
+        </button>
+        <button type="submit" onclick="document.querySelector('[name=published]').checked=true"
+                class="btn btn-success">
+          🚀 Sauvegarder et publier
+        </button>
+      </div>
+    </form>
+  </main>
+
+</div>
+
+<script>
+function previewImage(input) {
+  const preview = document.getElementById('thumb-preview');
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+</script>
+{% endblock %}

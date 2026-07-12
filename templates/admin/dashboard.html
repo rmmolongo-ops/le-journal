@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Admin{% endblock %}
+
+{% block body %}
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar__logo">⚡ Le Journal</div>
+    <nav class="admin-nav">
+      <a href="{{ url_for('admin_dashboard') }}" class="active">📋 Articles</a>
+      <a href="{{ url_for('admin_new') }}">✏️ Nouvel article</a>
+      <a href="{{ url_for('index') }}" target="_blank">🌐 Voir le site</a>
+      <a href="{{ url_for('admin_logout') }}" style="margin-top:auto;color:#ef4444">🚪 Déconnexion</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="admin-main">
+    <div class="admin-header">
+      <h1>📋 Tous les articles</h1>
+      <a href="{{ url_for('admin_new') }}" class="btn btn-primary">✏️ Nouvel article</a>
+    </div>
+
+    {% if articles %}
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Titre</th>
+          <th>Catégorie</th>
+          <th>Auteur</th>
+          <th>Date</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for post in articles %}
+        <tr>
+          <td><strong>{{ post['title'] }}</strong></td>
+          <td>{{ post.get('category', '—') }}</td>
+          <td>{{ post.get('author', '—') }}</td>
+          <td>{{ post.get('date', '—') }}</td>
+          <td>
+            {% if post.get('published') %}
+              <span class="badge badge-published">Publié</span>
+            {% else %}
+              <span class="badge badge-draft">Brouillon</span>
+            {% endif %}
+          </td>
+          <td style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <a href="{{ url_for('admin_edit', slug=post['slug']) }}" class="btn btn-ghost btn-sm">Modifier</a>
+
+            <form method="POST" action="{{ url_for('admin_toggle', slug=post['slug']) }}" style="display:inline">
+              {% if post.get('published') %}
+                <button class="btn btn-ghost btn-sm" style="color:var(--c-yellow)">Dépublier</button>
+              {% else %}
+                <button class="btn btn-success btn-sm">Publier</button>
+              {% endif %}
+            </form>
+
+            <a href="{{ url_for('article', slug=post['slug']) }}" target="_blank" class="btn btn-ghost btn-sm">Voir</a>
+
+            <form method="POST" action="{{ url_for('admin_delete', slug=post['slug']) }}" style="display:inline"
+                  onsubmit="return confirm('Supprimer cet article ?')">
+              <button class="btn btn-danger btn-sm">Supprimer</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state__icon">✏️</div>
+      <h3>Aucun article pour le moment</h3>
+      <p>Commencez par créer votre premier article !</p>
+      <a href="{{ url_for('admin_new') }}" class="btn btn-primary" style="margin-top:1rem">Créer un article</a>
+    </div>
+    {% endif %}
+  </main>
+
+</div>
+{% endblock %}

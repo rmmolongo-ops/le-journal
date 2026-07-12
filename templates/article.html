@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ post['title'] }} — Le Journal{% endblock %}
+
+{% block body %}
+<nav class="navbar">
+  <a href="{{ url_for('index') }}" class="navbar__logo">⚡ Le Journal</a>
+  <ul class="navbar__links">
+    <li><a href="{{ url_for('category', category='actu') }}">Actu</a></li>
+    <li><a href="{{ url_for('category', category='culture') }}">Culture</a></li>
+    <li><a href="{{ url_for('category', category='sport') }}">Sport</a></li>
+    <li><a href="{{ url_for('category', category='sciences') }}">Sciences</a></li>
+    <li><a href="{{ url_for('category', category='tech') }}">Tech</a></li>
+  </ul>
+  <a href="{{ url_for('index') }}" class="btn btn-ghost btn-sm">← Retour</a>
+</nav>
+
+<div class="container">
+  <div class="article-header">
+    {% if post.get('category') %}
+      <a href="{{ url_for('category', category=post['category']) }}">
+        <span class="article-header__category">{{ post['category'] }}</span>
+      </a>
+    {% endif %}
+
+    <h1 class="article-header__title">{{ post['title'] }}</h1>
+
+    <div class="article-header__meta">
+      {% if post.get('author') %}<span>✍️ {{ post['author'] }}</span>{% endif %}
+      {% if post.get('date') %}<span>📅 {{ post['date'] }}</span>{% endif %}
+      {% if session.get('admin') %}
+        <a href="{{ url_for('admin_edit', slug=post['slug']) }}" class="btn btn-ghost btn-sm" style="margin-left:auto">Modifier</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if post.get('thumbnail_url') %}
+    <img class="article-hero" src="{{ post['thumbnail_url'] }}" alt="{{ post['title'] }}">
+  {% endif %}
+
+  <div class="article-content">
+    {{ post['html'] | safe }}
+  </div>
+</div>
+
+<footer>
+  <p>© 2024 Le Journal — <a href="{{ url_for('index') }}" style="color:var(--c-accent)">Retour à l'accueil</a></p>
+</footer>
+{% endblock %}

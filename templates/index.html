@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Le Journal — Accueil{% endblock %}
+
+{% block body %}
+<!-- Ticker -->
+<div class="ticker">
+  <div class="ticker__inner">
+    <span class="ticker__label">🔴 EN DIRECT</span>
+    <span>Retrouvez tous nos articles en exclusivité</span>
+    <span>✦</span>
+    <span>Actualités, culture, sport, sciences et plus</span>
+    <span>✦</span>
+    <span>Rejoignez la communauté du Journal</span>
+    <span>✦</span>
+    <span class="ticker__label">🔴 EN DIRECT</span>
+    <span>Retrouvez tous nos articles en exclusivité</span>
+    <span>✦</span>
+    <span>Actualités, culture, sport, sciences et plus</span>
+    <span>✦</span>
+    <span>Rejoignez la communauté du Journal</span>
+    <span>✦</span>
+  </div>
+</div>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a href="{{ url_for('index') }}" class="navbar__logo">⚡ Le Journal</a>
+  <ul class="navbar__links">
+    <li><a href="{{ url_for('category', category='actu') }}">Actu</a></li>
+    <li><a href="{{ url_for('category', category='culture') }}">Culture</a></li>
+    <li><a href="{{ url_for('category', category='sport') }}">Sport</a></li>
+    <li><a href="{{ url_for('category', category='sciences') }}">Sciences</a></li>
+    <li><a href="{{ url_for('category', category='tech') }}">Tech</a></li>
+  </ul>
+  <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost btn-sm">Admin</a>
+</nav>
+
+<div class="container">
+
+  {% if featured %}
+  <!-- Article à la une -->
+  <a href="{{ url_for('article', slug=featured['slug']) }}">
+    <div class="hero">
+      {% if featured.get('thumbnail') %}
+        <img class="hero__img" src="{{ url_for('static', filename=featured['thumbnail']) }}" alt="{{ featured['title'] }}">
+      {% else %}
+        <div class="hero__no-img"></div>
+      {% endif %}
+      <div class="hero__gradient"></div>
+      <div class="hero__body">
+        {% if featured.get('category') %}
+          <span class="hero__category">{{ featured['category'] }}</span>
+        {% endif %}
+        <h1 class="hero__title">{{ featured['title'] }}</h1>
+        <div class="hero__meta">
+          {% if featured.get('author') %}
+            <span class="hero__badge">✍️ {{ featured['author'] }}</span>
+          {% endif %}
+          <span>{{ featured.get('date', '') }}</span>
+          <span>⭐ À la une</span>
+        </div>
+      </div>
+    </div>
+  </a>
+  {% endif %}
+
+  {% if articles %}
+  <div class="section-header">
+    <h2>Derniers articles</h2>
+    <div class="section-header__line"></div>
+  </div>
+
+  <div class="grid">
+    {% for post in articles %}
+    <a href="{{ url_for('article', slug=post['slug']) }}">
+      <div class="card">
+        {% if post.get('thumbnail_url') %}
+          <img class="card__thumb" src="{{ post['thumbnail_url'] }}" alt="{{ post['title'] }}">
+        {% else %}
+          <div class="card__thumb-placeholder">📰</div>
+        {% endif %}
+        <div class="card__body">
+          {% if post.get('category') %}
+            <div class="card__category">{{ post['category'] }}</div>
+          {% endif %}
+          <h3 class="card__title">{{ post['title'] }}</h3>
+          <p class="card__excerpt">{{ post['excerpt'] }}</p>
+          <div class="card__footer">
+            <span>{{ post.get('date', '') }}</span>
+            <span class="card__read-more">Lire →</span>
+          </div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% elif not featured %}
+  <div class="empty-state">
+    <div class="empty-state__icon">📭</div>
+    <h3>Aucun article pour le moment</h3>
+    <p>Revenez bientôt pour découvrir nos premiers articles !</p>
+  </div>
+  {% endif %}
+
+</div>
+
+<footer>
+  <p>© 2024 Le Journal — Fait avec ❤️ pour les collégiens et lycéens</p>
+</footer>
+{% endblock %}
